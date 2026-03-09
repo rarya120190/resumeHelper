@@ -5,21 +5,22 @@ from __future__ import annotations
 import json
 import logging
 
-from langchain_community.llms import Ollama
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 
 from app.agents.prompts import RULEBOOK_UPDATER_PROMPT
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_llm: Ollama | None = None
+_llm: ChatOllama | None = None
 
 
-def _get_llm() -> Ollama:
+def _get_llm() -> ChatOllama:
     global _llm
     if _llm is None:
-        _llm = Ollama(
+        _llm = ChatOllama(
             model="llama3",
             base_url=settings.OLLAMA_BASE_URL,
             temperature=0.3,
@@ -62,7 +63,7 @@ async def extract_style_rules(
         A list of 2-3 actionable style rule strings.
     """
     llm = _get_llm()
-    chain = _prompt | llm
+    chain = _prompt | llm | StrOutputParser()
 
     logger.info("Extracting style rules from user edits")
     response = await chain.ainvoke(
@@ -85,7 +86,7 @@ async def extract_style_rules(
                 ),
             ]
         )
-        retry_chain = retry_prompt | llm
+        retry_chain = retry_prompt | llm | StrOutputParser()
         response = await retry_chain.ainvoke(
             {"ai_version": ai_version, "user_version": user_version}
         )

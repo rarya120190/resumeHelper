@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
@@ -12,6 +13,18 @@ from app.models.job import JobDescription
 from app.models.resume import MasterResume, TailoredResume
 from app.models.user import User
 from app.services.auth_service import create_access_token, hash_password
+
+
+_MOCK_PIPELINE_RESULT = {
+    "final_draft": "Tailored resume content here.",
+    "qa_passed": True,
+    "confidence_score": 92,
+    "qa_result": {"status": "PASS", "violations": [], "confidence_score": 92},
+    "jd_json": {},
+    "company_context": None,
+    "retry_count": 0,
+    "error": None,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -159,17 +172,21 @@ class TestTailoredResumes:
         master = await _create_master(client, auth_headers)
         job = await _create_job(db_session, test_user.id)
 
-        resp = await client.post(
-            "/resumes/tailor",
-            json={
-                "master_resume_id": master["id"],
-                "job_description_id": str(job.id),
-            },
-            headers=auth_headers,
-        )
+        with patch(
+            "app.agents.orchestrator.run_tailoring_pipeline",
+            new=AsyncMock(return_value=_MOCK_PIPELINE_RESULT),
+        ):
+            resp = await client.post(
+                "/resumes/tailor",
+                json={
+                    "master_resume_id": master["id"],
+                    "job_description_id": str(job.id),
+                },
+                headers=auth_headers,
+            )
         assert resp.status_code == 201
         data = resp.json()
-        assert data["qa_status"] == "pending"
+        assert data["qa_status"] == "pass"
         assert data["master_resume_id"] == master["id"]
         assert data["job_description_id"] == str(job.id)
         assert data["user_id"] == str(test_user.id)
@@ -202,14 +219,18 @@ class TestTailoredResumes:
         master = await _create_master(client, auth_headers)
         job = await _create_job(db_session, test_user.id)
 
-        await client.post(
-            "/resumes/tailor",
-            json={
-                "master_resume_id": master["id"],
-                "job_description_id": str(job.id),
-            },
-            headers=auth_headers,
-        )
+        with patch(
+            "app.agents.orchestrator.run_tailoring_pipeline",
+            new=AsyncMock(return_value=_MOCK_PIPELINE_RESULT),
+        ):
+            await client.post(
+                "/resumes/tailor",
+                json={
+                    "master_resume_id": master["id"],
+                    "job_description_id": str(job.id),
+                },
+                headers=auth_headers,
+            )
 
         resp = await client.get("/resumes/tailored", headers=auth_headers)
         assert resp.status_code == 200
@@ -225,14 +246,18 @@ class TestTailoredResumes:
         master = await _create_master(client, auth_headers)
         job = await _create_job(db_session, test_user.id)
 
-        create_resp = await client.post(
-            "/resumes/tailor",
-            json={
-                "master_resume_id": master["id"],
-                "job_description_id": str(job.id),
-            },
-            headers=auth_headers,
-        )
+        with patch(
+            "app.agents.orchestrator.run_tailoring_pipeline",
+            new=AsyncMock(return_value=_MOCK_PIPELINE_RESULT),
+        ):
+            create_resp = await client.post(
+                "/resumes/tailor",
+                json={
+                    "master_resume_id": master["id"],
+                    "job_description_id": str(job.id),
+                },
+                headers=auth_headers,
+            )
         tid = create_resp.json()["id"]
 
         resp = await client.get(f"/resumes/tailored/{tid}", headers=auth_headers)

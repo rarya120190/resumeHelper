@@ -5,21 +5,22 @@ from __future__ import annotations
 import json
 import logging
 
-from langchain_community.llms import Ollama
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 
 from app.agents.prompts import COMPANY_ENRICHMENT_PROMPT
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_llm: Ollama | None = None
+_llm: ChatOllama | None = None
 
 
-def _get_llm() -> Ollama:
+def _get_llm() -> ChatOllama:
     global _llm
     if _llm is None:
-        _llm = Ollama(
+        _llm = ChatOllama(
             model="llama3",
             base_url=settings.OLLAMA_BASE_URL,
             temperature=0.2,
@@ -57,7 +58,7 @@ async def enrich_company(company_name: str, company_url: str | None = None) -> d
     engineering_team_tone, power_keywords.
     """
     llm = _get_llm()
-    chain = _prompt | llm
+    chain = _prompt | llm | StrOutputParser()
 
     url_str = company_url or "Not provided"
     logger.info("Enriching company: %s (url=%s)", company_name, url_str)
@@ -81,7 +82,7 @@ async def enrich_company(company_name: str, company_url: str | None = None) -> d
                 ),
             ]
         )
-        retry_chain = retry_prompt | llm
+        retry_chain = retry_prompt | llm | StrOutputParser()
         response = await retry_chain.ainvoke(
             {"company_name": company_name, "company_url": url_str}
         )

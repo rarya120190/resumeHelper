@@ -87,7 +87,7 @@ class TestLogin:
     async def test_login_success(self, client: AsyncClient, test_user: User):
         resp = await client.post(
             "/auth/login",
-            json={"email": test_user.email, "password": "SecurePass123!"},
+            data={"username": test_user.email, "password": "SecurePass123!"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -97,7 +97,7 @@ class TestLogin:
     async def test_login_wrong_password(self, client: AsyncClient, test_user: User):
         resp = await client.post(
             "/auth/login",
-            json={"email": test_user.email, "password": "WrongPassword!"},
+            data={"username": test_user.email, "password": "WrongPassword!"},
         )
         assert resp.status_code == 401
         assert "invalid" in resp.json()["detail"].lower()
@@ -105,7 +105,7 @@ class TestLogin:
     async def test_login_nonexistent_user(self, client: AsyncClient):
         resp = await client.post(
             "/auth/login",
-            json={"email": "nobody@example.com", "password": "Whatever1!"},
+            data={"username": "nobody@example.com", "password": "Whatever1!"},
         )
         assert resp.status_code == 401
 

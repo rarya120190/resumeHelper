@@ -47,9 +47,14 @@ def _get_llm() -> BaseChatModel:
         )
         logger.info("Resume writer using Anthropic Claude 3.5 Sonnet")
     else:
-        raise RuntimeError(
-            "No premium AI key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY."
+        from langchain_ollama import ChatOllama
+
+        _llm = ChatOllama(
+            model="llama3",
+            base_url=settings.OLLAMA_BASE_URL,
+            temperature=0.3,
         )
+        logger.info("Resume writer using local Ollama/Llama3")
 
     return _llm
 

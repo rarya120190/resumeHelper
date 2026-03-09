@@ -5,21 +5,22 @@ from __future__ import annotations
 import json
 import logging
 
-from langchain_community.llms import Ollama
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 
 from app.agents.prompts import QA_AUDITOR_PROMPT
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_llm: Ollama | None = None
+_llm: ChatOllama | None = None
 
 
-def _get_llm() -> Ollama:
+def _get_llm() -> ChatOllama:
     global _llm
     if _llm is None:
-        _llm = Ollama(
+        _llm = ChatOllama(
             model="llama3",
             base_url=settings.OLLAMA_BASE_URL,
             temperature=0.0,
@@ -74,7 +75,7 @@ async def audit_resume(master_resume: str, tailored_draft: str) -> dict:
         - confidence_score: int (0-100)
     """
     llm = _get_llm()
-    chain = _prompt | llm
+    chain = _prompt | llm | StrOutputParser()
 
     logger.info("Running QA audit on tailored draft (%d chars)", len(tailored_draft))
     response = await chain.ainvoke(
@@ -97,7 +98,7 @@ async def audit_resume(master_resume: str, tailored_draft: str) -> dict:
                 ),
             ]
         )
-        retry_chain = retry_prompt | llm
+        retry_chain = retry_prompt | llm | StrOutputParser()
         response = await retry_chain.ainvoke(
             {"master_resume": master_resume, "tailored_draft": tailored_draft}
         )

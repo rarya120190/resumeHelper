@@ -1,10 +1,23 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
 
 import markdown as md  # type: ignore[import-untyped]
-from weasyprint import HTML  # type: ignore[import-untyped]
+
+logger = logging.getLogger(__name__)
+
+try:
+    from weasyprint import HTML as _WeasyHTML  # type: ignore[import-untyped]
+    _WEASYPRINT_AVAILABLE = True
+except Exception:  # OSError / ImportError when GTK libs are missing
+    _WeasyHTML = None  # type: ignore[assignment]
+    _WEASYPRINT_AVAILABLE = False
+    logger.warning(
+        "WeasyPrint could not load GTK/Pango libraries. "
+        "PDF download will return HTML as a fallback."
+    )
 
 # ── "Modern Classic" ATS-friendly stylesheet ────────────────────────────
 _RESUME_CSS = """\
@@ -156,17 +169,11 @@ def get_resume_html(resume_content: str, user_name: str) -> str:
 def render_resume_pdf(resume_content: str, user_name: str) -> bytes:
     """Render a styled PDF resume.
 
-    Parameters
-    ----------
-    resume_content : str
-        Resume body in Markdown or plain text.
-    user_name : str
-        Candidate's full name, placed at the top of the document.
-
-    Returns
-    -------
-    bytes
-        PDF file contents.
+    Returns PDF bytes if WeasyPrint/GTK is available, otherwise falls back
+    to returning the HTML as UTF-8 bytes (still downloadable).
     """
     html_string = get_resume_html(resume_content, user_name)
-    return HTML(string=html_string).write_pdf()
+    if _WEASYPRINT_AVAILABLE and _WeasyHTML is not None:
+        return _WeasyHTML(string=html_string).write_pdf()
+    logger.warning("Returning HTML bytes because WeasyPrint is unavailable.")
+    return html_string.encode("utf-8")
