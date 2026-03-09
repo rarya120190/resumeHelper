@@ -26,6 +26,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
+# Pre-download spaCy model so it's baked into the image (avoids 400MB runtime download)
+RUN python -m spacy download en_core_web_lg
+
 WORKDIR /app
 
 COPY . .
